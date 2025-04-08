@@ -9,7 +9,7 @@ st.set_page_config(page_title="Safety Violation Detector", layout="wide")
 st.title("🚧 Real-Time Safety Violation Detection with YOLOv11")
 
 # 🧠 Load your trained YOLOv11 model
-model = YOLO("yolov11_baseline_model.pt")  # 👈 Replace this with your model file name
+model = YOLO("yolov11_baseline_model.torchscript")  # 👈 Replace this with your model file name
 
 # 🎥 Use your computer’s built-in webcam
 cap = cv2.VideoCapture(0)  # 0 means default webcam
