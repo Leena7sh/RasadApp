@@ -1,40 +1,64 @@
 import streamlit as st
 from ultralytics import YOLO
 import cv2
+import os
+from datetime import datetime
 
-# Streamlit page config
-st.set_page_config(page_title="Live Safety Violation Detection", layout="wide")
+# 🎨 Streamlit UI Setup
+st.set_page_config(page_title="Safety Violation Detector", layout="wide")
 st.title("🚧 Real-Time Safety Violation Detection with YOLOv11")
 
-# Load YOLOv11 model
-model_path = "/workspaces/RasadApp/app.py"  # Change this if your file has a different name
-model = YOLO(model_path)
+# 🧠 Load your trained YOLOv11 model
+model = YOLO("/workspaces/RasadApp/yolov11_baseline_model.pt")  # 👈 Replace this with your model file name
 
-# Streamlit checkbox to start/stop detection
-run = st.checkbox('▶️ Start Camera')
+# 🎥 Use your computer’s built-in webcam
+cap = cv2.VideoCapture(0)  # 0 means default webcam
 
-# Image placeholder
+# 🧾 Display Start Checkbox
+run = st.checkbox("▶️ Start Camera")
+
+# 💡 Image Placeholder & Violation Counter
 FRAME_WINDOW = st.image([])
+violation_count = 0
 
-# Open webcam
-cap = cv2.VideoCapture(0)
+# 🗂️ Create folder to save violation snapshots
+if not os.path.exists("violations"):
+    os.makedirs("violations")
 
+# 🔁 Real-time detection loop
 while run:
     success, frame = cap.read()
     if not success:
-        st.error("❌ Could not access webcam.")
+        st.warning("⚠️ Could not access webcam.")
         break
 
-    # Run inference
+    # 🧠 Run detection
     results = model(frame)
     annotated_frame = results[0].plot()
 
-    # Convert BGR (OpenCV) to RGB (Streamlit)
-    annotated_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
+    # 🧾 Extract detected class names
+    class_ids = results[0].boxes.cls.cpu().tolist()
+    class_names = [model.names[int(cls)] for cls in class_ids]
 
-    # Display in Streamlit
-    FRAME_WINDOW.image(annotated_frame)
+    # 🚨 Define which labels are considered violations
+    violation_classes = ["no_helmet", "no_vest"]  # 👈 Edit to match your model labels
+    violations = [name for name in class_names if name in violation_classes]
 
-# Release webcam when done
+    if violations:
+        violation_count += 1
+        st.error(f"🚨 Violation Detected: {', '.join(set(violations))}")
+        
+        # 💾 Save snapshot of violation
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"violations/violation_{timestamp}.jpg"
+        cv2.imwrite(filename, frame)
+
+    # 📊 Show violation counter
+    st.metric("Violations Detected", violation_count)
+
+    # 🖼️ Convert BGR to RGB and display the annotated frame
+    rgb_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
+    FRAME_WINDOW.image(rgb_frame)
+
+# 🧹 Release camera when done
 cap.release()
-
