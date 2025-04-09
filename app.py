@@ -8,15 +8,15 @@ import pandas as pd
 import altair as alt
 from playsound import playsound
 import threading
+# 🎨 UI Setup
+st.set_page_config(page_title="Safety Violation Detector", layout="wide")
+st.title("🚧 Real-Time Safety Violation Detection with YOLOv11")
 
 # 🧠 System Info
 st.sidebar.subheader("🧠 System Check")
 st.sidebar.write("Using GPU?", torch.cuda.is_available())
 st.sidebar.write("Device name:", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
-# 🎨 UI Setup
-st.set_page_config(page_title="Safety Violation Detector", layout="wide")
-st.title("🚧 Real-Time Safety Violation Detection with YOLOv11")
 
 # 🧬 Load model
 model = YOLO("yolov11_baseline_model.torchscript")
