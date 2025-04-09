@@ -8,6 +8,7 @@ import pandas as pd
 import altair as alt
 from playsound import playsound
 import threading
+
 # 🎨 UI Setup
 st.set_page_config(page_title="Safety Violation Detector", layout="wide")
 st.title("Rasad")
@@ -16,7 +17,6 @@ st.title("Rasad")
 st.sidebar.subheader("🧠 System Check")
 st.sidebar.write("Using GPU?", torch.cuda.is_available())
 st.sidebar.write("Device name:", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
-
 
 # 🧬 Load model
 model = YOLO("yolov11_baseline_model.torchscript")
@@ -68,21 +68,28 @@ if run:
             st.warning("⚠️ Could not access webcam.")
             break
 
-        results = model(frame)
+        results = model.predict(frame, device="cpu")
         annotated_frame = results[0].plot()
 
         # Extract detections
         boxes = results[0].boxes
         class_ids = boxes.cls.cpu().tolist() if boxes is not None else []
         class_names = [model.names[int(cls)] for cls in class_ids] if class_ids else []
+        xyxy = boxes.xyxy.cpu().numpy() if boxes is not None else []
 
         # Filter for violations only
-        violations = [name for name in class_names if name in VIOLATION_CLASSES]
-
         now = datetime.now()
+        violations = [(xyxy[i], class_names[i]) for i in range(len(class_names)) if class_names[i] in VIOLATION_CLASSES]
+
         if violations and now - st.session_state.last_logged_time > LOG_INTERVAL:
             st.session_state.last_logged_time = now
-            st.error(f"🚨 Violation Detected: {', '.join(set(violations))}")
+            st.error(f"🚨 Violation Detected: {', '.join(set([v[1] for v in violations]))}")
+
+            # Draw bounding boxes on the frame before saving
+            for bbox, label in violations:
+                x1, y1, x2, y2 = map(int, bbox)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
 
             filename = f"violations/violation_{now.strftime('%Y%m%d_%H%M%S')}.jpg"
             cv2.imwrite(filename, frame)
@@ -90,7 +97,7 @@ if run:
             # Log violation
             st.session_state.violation_log.append({
                 "Time": now,
-                "Type": ', '.join(set(violations))
+                "Type": ', '.join(set([v[1] for v in violations]))
             })
 
             # Play alert sound in background
