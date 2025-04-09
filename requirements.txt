@@ -3,6 +3,4 @@ ultralytics
 opencv-python
 pandas
 altair
-playsound
-
-
+playsound==1.2.2
