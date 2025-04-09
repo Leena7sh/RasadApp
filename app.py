@@ -9,6 +9,9 @@ import altair as alt
 from playsound import playsound
 import threading
 
+# ✅ FIRST Streamlit call must be here
+st.set_page_config(page_title="Safety Violation Detector", layout="wide")
+
 # 🧠 System Info
 st.sidebar.subheader("🧠 System Check")
 st.sidebar.write("Using GPU?", torch.cuda.is_available())

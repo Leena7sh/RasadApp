@@ -1,5 +1,8 @@
+streamlit
 ultralytics
 opencv-python
-streamlit
-Pillow
+pandas
+altair
+playsound
+
 
