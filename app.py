@@ -10,7 +10,7 @@ from playsound import playsound
 import threading
 # 🎨 UI Setup
 st.set_page_config(page_title="Safety Violation Detector", layout="wide")
-st.title("🚧 Real-Time Safety Violation Detection with YOLOv11")
+st.title("Rasad")
 
 # 🧠 System Info
 st.sidebar.subheader("🧠 System Check")
