@@ -85,14 +85,15 @@ if run:
             st.session_state.last_logged_time = now
             st.error(f"🚨 Violation Detected: {', '.join(set([v[1] for v in violations]))}")
 
-            # Draw bounding boxes on the frame before saving
-            for bbox, label in violations:
-                x1, y1, x2, y2 = map(int, bbox)
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+            # ✅ Draw bounding boxes and labels on the frame before saving (DISABLED FOR NOW)
+            # for bbox, label in violations:
+            #     x1, y1, x2, y2 = map(int, bbox)
+            #     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)  # red box
+            #     cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
 
-            filename = f"violations/violation_{now.strftime('%Y%m%d_%H%M%S')}.jpg"
-            cv2.imwrite(filename, frame)
+            # Save frame with drawn boxes (currently this will save raw frame)
+            #filename = f"violations/violation_{now.strftime('%Y%m%d_%H%M%S')}.jpg"
+            #cv2.imwrite(filename, frame)
 
             # Log violation
             st.session_state.violation_log.append({
