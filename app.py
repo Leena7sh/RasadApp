@@ -20,7 +20,6 @@ st.sidebar.write("Device name:", torch.device("cuda" if torch.cuda.is_available(
 
 # 🧬 Load model
 model = YOLO("yolov11_baseline_model.torchscript")
-model.to("cpu")
 
 # 📁 Violation folder setup
 if not os.path.exists("violations"):
