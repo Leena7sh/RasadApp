@@ -99,7 +99,8 @@ if run:
 
     cap.release()
     time.sleep(0.2)
-    st.experimental_rerun()
+    st.rerun()
+
 
 # 📊 Dashboard Section
 if st.session_state.violation_log:
