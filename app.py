@@ -6,32 +6,30 @@ from datetime import datetime, timedelta
 import torch
 import pandas as pd
 import altair as alt
-from playsound import playsound
 import threading
+import time
+from playsound import playsound
 
-# 🎨 UI Setup
-st.set_page_config(page_title="Safety Violation Detector", layout="wide")
-st.title("Rasad")
+# 🎨 Streamlit Setup
+st.set_page_config(page_title="Rasad - Violation Dashboard", layout="wide")
+st.title("🛡️ Rasad - Safety Violation Dashboard")
 
-# 🧠 System Info
-st.sidebar.subheader("🧠 System Check")
-st.sidebar.write("Using GPU?", torch.cuda.is_available())
-st.sidebar.write("Device name:", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+# 🕒 Show live clock
+st.markdown(f"### 🕒 Current Time: `{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}`")
 
-# 🧬 Load model
-model = YOLO("yolov11_baseline_model.torchscript")
+# 🧬 Load YOLOv11 Model
+model = YOLO("yolov11_baseline_model.torchscript", task="detect")
 
-# 📁 Violation folder setup
-if not os.path.exists("violations"):
-    os.makedirs("violations")
+# 📁 Ensure folders exist
+os.makedirs("violations", exist_ok=True)
 
-# 📊 Session state setup
+# 📊 Session State Initialization
 if "violation_log" not in st.session_state:
     st.session_state.violation_log = []
 if "last_logged_time" not in st.session_state:
     st.session_state.last_logged_time = datetime.min
 
-# 🎮 Start/Stop
+# 🎮 Sidebar Controls
 run = st.sidebar.checkbox("▶️ Start Camera")
 reset = st.sidebar.button("🔄 Reset Log")
 
@@ -39,45 +37,37 @@ if reset:
     st.session_state.violation_log.clear()
     st.session_state.last_logged_time = datetime.min
 
-# 📹 Setup webcam
+# 📹 Webcam Setup
 cap = cv2.VideoCapture(0)
 col1, col2 = st.columns(2)
 FRAME_WINDOW = col1.image([])
 
-# 🔊 Play sound on violation (runs in background thread)
+# 🔊 Sound Alert Function
 def play_alert():
     try:
-        playsound("alert.mp3")  # Make sure this file exists
-    except:
-        pass
+        playsound("alert.mp3")
+    except Exception as e:
+        print("Sound error:", e)
 
-# Define violation classes
+# 🚨 Detection Settings
 VIOLATION_CLASSES = ["maskoff", "no_glove", "no_hairnet"]
-
-# Time limit for counting violations
 VIOLATION_WINDOW = timedelta(seconds=30)
-
-# Time limit between consecutive logs
 LOG_INTERVAL = timedelta(seconds=5)
 
-# ♻️ Detection Loop
+# ♻️ Frame-by-frame Detection
 if run:
-    while True:
-        success, frame = cap.read()
-        if not success:
-            st.warning("⚠️ Could not access webcam.")
-            break
-
+    success, frame = cap.read()
+    if not success:
+        st.warning("⚠️ Could not access webcam.")
+    else:
         results = model.predict(frame, device="cpu")
         annotated_frame = results[0].plot()
 
-        # Extract detections
         boxes = results[0].boxes
         class_ids = boxes.cls.cpu().tolist() if boxes is not None else []
         class_names = [model.names[int(cls)] for cls in class_ids] if class_ids else []
         xyxy = boxes.xyxy.cpu().numpy() if boxes is not None else []
 
-        # Filter for violations only
         now = datetime.now()
         violations = [(xyxy[i], class_names[i]) for i in range(len(class_names)) if class_names[i] in VIOLATION_CLASSES]
 
@@ -85,51 +75,50 @@ if run:
             st.session_state.last_logged_time = now
             st.error(f"🚨 Violation Detected: {', '.join(set([v[1] for v in violations]))}")
 
-            # ✅ Draw bounding boxes and labels on the frame before saving (DISABLED FOR NOW)
-            # for bbox, label in violations:
-            #     x1, y1, x2, y2 = map(int, bbox)
-            #     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)  # red box
-            #     cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+            for v in violations:
+                st.session_state.violation_log.append({
+                    "Time": now,
+                    "Type": v[1]
+                })
 
-            # Save frame with drawn boxes (currently this will save raw frame)
-            #filename = f"violations/violation_{now.strftime('%Y%m%d_%H%M%S')}.jpg"
-            #cv2.imwrite(filename, frame)
-
-            # Log violation
-            st.session_state.violation_log.append({
-                "Time": now,
-                "Type": ', '.join(set([v[1] for v in violations]))
-            })
-
-            # Play alert sound in background
             threading.Thread(target=play_alert).start()
 
-        # Filter violations within last 30 seconds
-        recent_violations = [v for v in st.session_state.violation_log if v["Time"] >= now - VIOLATION_WINDOW]
+        # Display video frame
+        rgb_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
+        FRAME_WINDOW.image(rgb_frame)
 
-        # Show metrics
+        # Display metrics
+        recent_violations = [v for v in st.session_state.violation_log if v["Time"] >= now - VIOLATION_WINDOW]
         col2.metric("📷 Total Detections", len(class_names))
         col2.metric("❌ Violations (30s)", len(recent_violations))
 
-        # Show video
-        rgb_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
-        FRAME_WINDOW.image(rgb_frame, use_column_width=True)
-
     cap.release()
+    time.sleep(0.2)
+    st.rerun()
 
-# 📊 Violation Log + Chart
+
+# 📊 Dashboard Section
 if st.session_state.violation_log:
-    st.subheader("📊 Violation History")
+    st.markdown("## 📊 Violation Dashboard")
     df_log = pd.DataFrame(st.session_state.violation_log)
     df_log["Time"] = pd.to_datetime(df_log["Time"])
 
-    # 📂 Daily Report Download
+    # 📂 Downloadable Report
     today = datetime.now().strftime("%Y-%m-%d")
     csv_data = df_log.to_csv(index=False).encode('utf-8')
     st.download_button(label="📂 Download CSV Report", data=csv_data, file_name=f"violations_{today}.csv", mime='text/csv')
 
-    # 📊 Charts
-    st.subheader("🔺 Violation Trend (Bar Chart)")
+    # 📋 Summary Table (Type + First Time + Count)
+    summary_table = df_log.groupby("Type").agg(
+        First_Detected=("Time", "min"),
+        Count=("Type", "count")
+    ).reset_index()
+    summary_table["First_Detected"] = summary_table["First_Detected"].dt.strftime("%b %d, %Y %H:%M")
+    st.markdown("### 📋 Violation Summary Table")
+    st.dataframe(summary_table)
+
+    # 📈 Bar Chart
+    st.markdown("### 🔺 Violation Trend (Bar Chart)")
     df_chart = df_log.copy()
     df_chart["Minute"] = df_chart["Time"].dt.floor("min")
     chart_data = df_chart.groupby(["Minute", "Type"]).size().reset_index(name="Count")
@@ -141,9 +130,10 @@ if st.session_state.violation_log:
         tooltip=["Minute", "Type", "Count"]
     ).properties(width=700, height=400)
 
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart)
 
-    st.subheader("🔢 Violation Type Breakdown")
+    # 🥧 Pie Chart
+    st.markdown("### 🔢 Violation Type Breakdown (Pie Chart)")
     pie_data = df_log["Type"].value_counts().reset_index()
     pie_data.columns = ["Type", "Count"]
 
@@ -152,10 +142,10 @@ if st.session_state.violation_log:
         color="Type",
         tooltip=["Type", "Count"]
     )
-    st.altair_chart(pie_chart, use_container_width=True)
+    st.altair_chart(pie_chart)
 
-    # ♻️ Delete logs older than 1 day
+    # ♻️ Clean old logs
     st.session_state.violation_log = [v for v in st.session_state.violation_log if v["Time"] >= datetime.now() - timedelta(days=1)]
 
 else:
-    st.info("No violations recorded yet.")
+    st.info("ℹ️ No violations recorded yet. Start the camera to begin detection.")
