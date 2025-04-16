@@ -52,7 +52,7 @@ def play_alert():
 # 🚨 Detection Settings
 VIOLATION_CLASSES = ["maskoff", "no_glove", "no_hairnet"]
 VIOLATION_WINDOW = timedelta(seconds=30)
-LOG_INTERVAL = timedelta(seconds=5)
+LOG_INTERVAL = timedelta(seconds=10)
 
 # ♻️ Frame-by-frame Detection
 if run:
